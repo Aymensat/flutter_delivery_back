@@ -1,0 +1,1384 @@
+openapi: 3.0.3
+info:
+  title: Unified Food Delivery API - Refined
+  description: |
+    Fully detailed and corrected OpenAPI 3.0 specification for the Unified Food Delivery backend.
+    Includes authentication, users, cart, chat, deliveries, geocoding, file uploads,
+    analytics, restaurants, foods, orders, payments, feedback, notifications,
+    settings, health-check, route optimization, rate limiting, alias routes,
+    and WebSocket event summary.
+  version: "4.0.0"
+servers:
+  - url: /api
+    description: Primary API server
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    UserPublicProfile:
+      type: object
+      properties:
+        _id: { type: string, format: objectId }
+        username: { type: string }
+        firstName: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        image: { type: string, nullable: true }
+        verified: { type: boolean }
+        phone: { type: string, description: Tunisian phone regex }
+        location:
+          type: object
+          properties:
+            latitude: { type: number }
+            longitude: { type: number }
+        role:
+          type: string
+          enum: [client, livreur, admin]
+        vehiculetype: { type: string, nullable: true }
+        vehicleDocuments:
+          type: array
+          items: { type: string }
+        status: { type: string, enum: [available, unavailable] }
+        isOnline: { type: boolean }
+        lastActive: { type: string, format: date-time }
+        ratings:
+          type: array
+          items:
+            type: object
+            properties:
+              clientId: { type: string, format: objectId }
+              rating: { type: integer }
+        vehicle:
+          type: object
+          additionalProperties: true
+        livreurStats:
+          type: object
+          properties:
+            deliveriesCompleted: { type: integer }
+            deliveriesThisMonth: { type: integer }
+            averageTime: { type: string }
+            monthlyEarnings: { type: string }
+            successRate: { type: string }
+            rating: { type: number }
+
+    User:
+      type: object
+      properties:
+        _id: { type: string, format: objectId }
+        username: { type: string }
+        firstName: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        image: { type: string, nullable: true }
+        verified: { type: boolean }
+        phone: { type: string, description: Tunisian phone regex }
+        location:
+          type: object
+          properties:
+            latitude: { type: number }
+            longitude: { type: number }
+        role:
+          type: string
+          enum: [client, livreur, admin]
+        vehiculetype: { type: string, nullable: true }
+        vehicleDocuments:
+          type: array
+          items: { type: string }
+        status: { type: string, enum: [available, unavailable] }
+        isOnline: { type: boolean }
+        lastActive: { type: string, format: date-time }
+        ratings:
+          type: array
+          items:
+            type: object
+            properties:
+              clientId: { type: string, format: objectId }
+              rating: { type: integer }
+        vehicle:
+          type: object
+          additionalProperties: true
+        livreurStats:
+          type: object
+          properties:
+            deliveriesCompleted: { type: integer }
+            deliveriesThisMonth: { type: integer }
+            averageTime: { type: string }
+            monthlyEarnings: { type: string }
+            successRate: { type: string }
+            rating: { type: number }
+      required: [username, firstName, name, email, phone]
+
+    Cart:
+      type: object
+      properties:
+        _id: { type: string, format: objectId }
+        user: { $ref: "#/components/schemas/UserPublicProfile" }
+        food: { $ref: "#/components/schemas/Food" }
+        quantity: { type: integer, minimum: 1 }
+        excludedIngredients:
+          type: array
+          items:
+            type: string
+          description: A list of ingredients to exclude from the food item.
+      required: [user, food, quantity]
+
+    ChatConversation:
+      type: object
+      properties:
+        _id: { type: string, format: objectId }
+        participants:
+          type: array
+          items: { $ref: "#/components/schemas/UserPublicProfile" }
+        lastMessage: { type: string, format: objectId }
+        lastMessageTimestamp: { type: string, format: date-time }
+        unreadCount: { type: integer }
+
+    ChatMessage:
+      type: object
+      properties:
+        _id: { type: string, format: objectId }
+        sender: { $ref: "#/components/schemas/UserPublicProfile" }
+        receiver: { $ref: "#/components/schemas/UserPublicProfile" }
+        message: { type: string }
+        imageUrl: { type: string }
+        isRead: { type: boolean }
+        createdAt: { type: string, format: date-time }
+      required: [sender, receiver]
+
+    Delivery:
+      type: object
+      properties:
+        _id: { type: string, format: objectId }
+        order: { type: string, format: objectId, nullable: true }
+        driver: { $ref: "#/components/schemas/UserPublicProfile" }
+        client: { $ref: "#/components/schemas/UserPublicProfile" }
+        status:
+          type: string
+          enum: [pending, picked_up, delivering, delivered, cancelled]
+        currentLocation:
+          type: object
+          properties:
+            latitude: { type: number, nullable: true }
+            longitude: { type: number, nullable: true }
+            address: { type: string }
+            updatedAt: { type: string, format: date-time }
+        locationHistory:
+          type: array
+          items:
+            type: object
+            properties:
+              latitude: { type: number }
+              longitude: { type: number }
+              timestamp: { type: string, format: date-time }
+        deliveredAt: { type: string, format: date-time }
+        maintenanceHistory:
+          type: array
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date-time }
+              type: { type: string }
+              cost: { type: string }
+              mileage: { type: string }
+        restaurantName: { type: string }
+        restaurantLatitude: { type: number }
+        restaurantLongitude: { type: number }
+        rating: { type: number, minimum: 1, maximum: 5 }
+      required: [driver]
+
+    Feedback:
+      type: object
+      properties:
+        _id: { type: string, format: objectId }
+        order: { type: string, format: objectId }
+        user: { $ref: "#/components/schemas/UserPublicProfile" }
+        delivery: { type: string, format: objectId, nullable: true }
+        restaurant: { type: string, format: objectId, nullable: true }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string }
+        type:
+          type: string
+          enum: [restaurant, delivery, food]
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [order, user, rating]
+
+    Order:
+      type: object
+      required:
+        - user
+        - restaurant
+        - items
+        - reference
+        - phone
+        - latitude
+        - longitude
+        - cookingTime
+      properties:
+        _id:
+          type: string
+          format: objectId
+          description: Unique identifier for the order.
+        user:
+          type: string
+          format: objectId
+          description: The ID of the user who placed the order.
+        restaurant:
+          type: string
+          format: objectId
+          description: The ID of the restaurant for the order.
+        restaurantName:
+          type: string
+          description: The name of the restaurant.
+        restaurantLatitude:
+          type: number
+          description: The latitude of the restaurant's location.
+        restaurantLongitude:
+          type: number
+          description: The longitude of the restaurant's location.
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              - food
+              - quantity
+            properties:
+              food:
+                type: string
+                format: objectId
+                description: The ID of the food item.
+              quantity:
+                type: integer
+                minimum: 1
+                description: The quantity of the specified food item.
+              excludedIngredients:
+                type: array
+                items:
+                  type: string
+                description: A list of ingredients to exclude from this item.
+        totalPrice:
+          type: number
+          minimum: 0
+          description: The total calculated price of all items in the order.
+        subtotal:
+          type: number
+          minimum: 0
+          description: The subtotal price before additional fees.
+        deliveryFee:
+          type: number
+          minimum: 0
+          default: 3
+          description: The fee for delivering the order.
+        status:
+          type: string
+          enum: [pending, livring, completed, cancelled]
+          default: "pending"
+          description: The current status of the order.
+        paymentStatus:
+          type: string
+          enum: [pending, paid, failed]
+          default: "pending"
+          description: The financial status of the order.
+        serviceMethod:
+          type: string
+          enum: ["delivery"]
+          default: "delivery"
+          description: The method of service for the order.
+        paymentMethod:
+          type: string
+          enum: ["credit-card", "paypal"]
+          default: "credit-card"
+          description: The method used for payment.
+        reference:
+          type: number
+          description: A unique reference number for the order.
+        phone:
+          type: string
+          description: The contact phone number for the order delivery.
+        latitude:
+          type: number
+          description: The delivery destination's latitude.
+        longitude:
+          type: number
+          description: The delivery destination's longitude.
+        cookingTime:
+          type: number
+          description: The estimated time in minutes for the order to be cooked.
+        livreur:
+          type: string
+          format: objectId
+          description: The ID of the delivery driver assigned to the order.
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp indicating when the order was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: The timestamp indicating the last time the order was updated.
+
+    Notification:
+      type: object
+      required:
+        - recipient
+        - type
+        - message
+      properties:
+        _id:
+          type: string
+          format: objectId
+          description: Unique identifier for the notification.
+        recipient:
+          type: string
+          format: objectId
+          description: The ID of the user who receives the notification.
+        sender:
+          type: string
+          format: objectId
+          description: The ID of the user who sent the notification.
+        type:
+          type: string
+          enum:
+            [
+              delivery_assigned,
+              order_status_changed,
+              system_message,
+              welcome,
+              order_delivered,
+            ]
+          description: The category or type of the notification.
+        message:
+          type: string
+          description: The textual content of the notification.
+        read:
+          type: boolean
+          default: false
+          description: A flag indicating whether the notification has been read.
+        data:
+          type: object
+          additionalProperties: true
+          description: A flexible field for any additional data related to the notification.
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp indicating when the notification was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: The timestamp indicating the last time the notification was updated.
+
+    Food:
+      type: object
+      properties:
+        _id: { type: string, format: objectId }
+        name: { type: string }
+        description: { type: string }
+        category: { type: string }
+        calories: { type: number }
+        ingredients:
+          type: array
+          items: { type: string }
+        price: { type: number }
+        restaurant: { type: string, format: objectId }
+        restaurantDetails:
+          type: object
+          properties:
+            name: { type: string }
+            address: { type: string }
+            contact: { type: string }
+        imageUrl: { type: string }
+        isAvailable: { type: boolean }
+        ratings:
+          type: array
+          items:
+            type: object
+            properties:
+              clientId: { type: string, format: objectId }
+              rating: { type: number }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [name, category, price, restaurant, restaurantDetails]
+
+    Restaurant:
+      type: object
+      properties:
+        _id: { type: string, format: objectId }
+        name: { type: string }
+        images:
+          type: array
+          items: { type: string }
+        description: { type: string }
+        address: { type: string }
+        contact: { type: string }
+        workingHours: { type: string }
+        cuisine: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        rating: { type: number }
+        ratings:
+          type: array
+          items:
+            type: object
+            properties:
+              clientId: { type: string, format: objectId }
+              rating: { type: number }
+        imageUrl: { type: string }
+        openingHours:
+          type: object
+          properties:
+            open: { type: string }
+            close: { type: string }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [name, description, address, contact, workingHours, cuisine]
+
+    Payment:
+      type: object
+      properties:
+        _id: { type: string, format: objectId }
+        user: { $ref: "#/components/schemas/UserPublicProfile" }
+        order: { type: string, format: objectId }
+        cardName: { type: string }
+        cardNumber: { type: string }
+        expiry: { type: string }
+        cvc: { type: string }
+        amount: { type: number }
+        status:
+          type: string
+          enum: [pending, paid, failed]
+        saveCard: { type: boolean }
+        isDefault: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        maskedCardNumber:
+          type: string
+          description: Virtual masked card number
+      required: [user, order, cardName, cardNumber, expiry, cvc, amount]
+
+    Settings:
+      type: object
+      properties:
+        _id: { type: string, format: objectId }
+        user: { $ref: "#/components/schemas/UserPublicProfile" }
+        notifications:
+          type: object
+          properties:
+            emailNotifications: { type: boolean }
+            pushNotifications: { type: boolean }
+            orderUpdates: { type: boolean }
+            marketingEmails: { type: boolean }
+            systemAlerts: { type: boolean }
+        security:
+          type: object
+          properties:
+            twoFactorAuth: { type: boolean }
+            loginAlerts: { type: boolean }
+            dataEncryption: { type: boolean }
+        appearance:
+          type: object
+          properties:
+            darkMode: { type: boolean }
+            compactView: { type: boolean }
+            highContrast: { type: boolean }
+        system:
+          type: object
+          properties:
+            autoBackup: { type: boolean }
+            dataRetention: { type: string }
+            errorReporting: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [user]
+    Analytics:
+      type: object
+      properties:
+        _id: { type: string, format: objectId }
+        totalUsers: { type: integer }
+        totalOrders: { type: integer }
+        totalRevenue: { type: number }
+        totalRestaurants: { type: integer }
+        totalDeliveries: { type: integer }
+        totalFoods: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    RouteOptimization:
+      type: object
+      properties:
+        _id: { type: string, format: objectId }
+        livreurId: { type: string, format: objectId }
+        orders:
+          type: array
+          items:
+            type: string
+            format: objectId
+        optimizedRoute:
+          type: array
+          items:
+            type: object
+            properties:
+              latitude: { type: number }
+              longitude: { type: number }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    HealthCheck:
+      type: object
+      properties:
+        status: { type: string }
+        message: { type: string }
+        timestamp: { type: string, format: date-time }
+
+paths:
+  # Authentication and Users
+  /users/register:
+    post:
+      tags: [Users]
+      summary: Register new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/User" }
+      responses:
+        "201":
+          description: Created
+        "400": { description: Bad Request }
+  /users/login:
+    post:
+      tags: [Users]
+      summary: Login and receive JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200": { description: OK }
+        "401": { description: Unauthorized }
+  /users/register/image:
+    post:
+      tags: [Users]
+      summary: Upload user registration image
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image: { type: string, format: binary }
+      responses:
+        "201": { description: Created }
+        "400": { description: Bad Request }
+  /users/register/documents:
+    post:
+      tags: [Users]
+      summary: Upload user registration documents
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                document: { type: string, format: binary }
+      responses:
+        "201": { description: Created }
+        "400": { description: Bad Request }
+  /users/me:
+    get:
+      tags: [Users]
+      security: [{ BearerAuth: [] }]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserPublicProfile" }
+        "401": { description: Unauthorized }
+  /users:
+    get:
+      tags: [Users]
+      security: [{ BearerAuth: [] }]
+      summary: Get users for chat based on role
+      description: Returns a list of admins for livreurs, and a list of livreurs for admins.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    _id: { type: string }
+                    name: { type: string }
+                    role: { type: string }
+                    avatar: { type: string }
+        "403": { description: Forbidden }
+  /users/{id}:
+    put:
+      tags: [Users]
+      security: [{ BearerAuth: [] }]
+      summary: Update user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/User" }
+      responses:
+        "200": { description: Updated }
+        "400": { description: Bad Request }
+  /users/status:
+    put:
+      tags: [Users]
+      summary: Update user online status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId: { type: string }
+                isOnline: { type: boolean }
+      responses:
+        "200": { description: OK }
+  /users/change-password:
+    post:
+      tags: [Users]
+      security: [{ BearerAuth: [] }]
+      summary: Change user password
+      responses:
+        "200": { description: OK }
+  /users/chat-users:
+    get:
+      tags: [Users]
+      security: [{ BearerAuth: [] }]
+      summary: Get chat users
+      responses:
+        "200": { description: OK }
+
+  # Cart
+  /cart:
+    get:
+      tags: [Cart]
+      security: [{ BearerAuth: [] }]
+      summary: Get cart items
+      responses: { "200": { description: OK } }
+    post:
+      tags: [Cart]
+      security: [{ BearerAuth: [] }]
+      summary: Add/increment food in cart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                foodId: { type: string }
+                quantity: { type: integer }
+                excludedIngredients:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        { "201": { description: Created }, "400": { description: Bad Request } }
+  /cart/{id}:
+    parameters:
+      [{ name: id, in: path, required: true, schema: { type: string } }]
+    put:
+      tags: [Cart]
+      security: [{ BearerAuth: [] }]
+      summary: Update cart item quantity or exclusions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quantity: { type: integer }
+                excludedIngredients:
+                  type: array
+                  items:
+                    type: string
+      responses: { "200": { description: OK } }
+    delete:
+      tags: [Cart]
+      security: [{ BearerAuth: [] }]
+      summary: Remove item by ID
+      responses: { "204": { description: Deleted } }
+  /cart/clear:
+    delete:
+      tags: [Cart]
+      security: [{ BearerAuth: [] }]
+      summary: Clear all items from the cart
+      responses: { "204": { description: "Cart cleared" } }
+
+  # Chat
+  /chat/history/{senderId}/{receiverId}:
+    get:
+      tags: [Chat]
+      security: [{ BearerAuth: [] }]
+      summary: Get messages
+      parameters:
+        - name: senderId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: receiverId
+          in: path
+          required: true
+          schema: { type: string }
+      responses: { "200": { description: OK } }
+  /chat/conversations/{userId}:
+    get:
+      tags: [Chat]
+      security: [{ BearerAuth: [] }]
+      summary: List conversations
+      parameters:
+        [{ name: userId, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: OK } }
+  /chat/message:
+    post:
+      tags: [Chat]
+      security: [{ BearerAuth: [] }]
+      summary: Send message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                receiver: { type: string }
+                message: { type: string }
+                imageUrl: { type: string }
+      responses: { "201": { description: Created } }
+
+  # Deliveries
+  /deliveries:
+    get:
+      tags: [Deliveries]
+      security: [{ BearerAuth: [] }]
+      summary: List deliveries
+      responses: { "200": { description: OK } }
+  /delivery/stats:
+    get:
+      tags: [Deliveries]
+      summary: Delivery stats
+      parameters:
+        [{ name: userId, in: query, required: true, schema: { type: string } }]
+      responses: { "200": { description: OK } }
+  /delivery/mock-delivery-orders:
+    get:
+      tags: [Deliveries]
+      summary: Mock delivery orders
+      responses: { "200": { description: OK } }
+  /delivery/by-status:
+    get:
+      tags: [Deliveries]
+      security: [{ BearerAuth: [] }]
+      summary: Get deliveries by status
+      responses: { "200": { description: OK } }
+  /delivery/list:
+    get:
+      tags: [Deliveries]
+      security: [{ BearerAuth: [] }]
+      summary: Get deliveries by status (alias)
+      responses: { "200": { description: OK } }
+  /delivery/collected:
+    get:
+      tags: [Deliveries]
+      security: [{ BearerAuth: [] }]
+      summary: Get collected delivery payments
+      responses: { "200": { description: OK } }
+  /delivery/payments:
+    get:
+      tags: [Deliveries]
+      security: [{ BearerAuth: [] }]
+      summary: Get collected delivery payments (alias)
+      responses: { "200": { description: OK } }
+  /delivery/earnings:
+    get:
+      tags: [Deliveries]
+      security: [{ BearerAuth: [] }]
+      summary: Get delivery earnings
+      responses: { "200": { description: OK } }
+  /delivery/livreur/{livreurId}:
+    get:
+      tags: [Deliveries]
+      security: [{ BearerAuth: [] }]
+      summary: Get deliveries by livreur ID
+      parameters:
+        - name: livreurId
+          in: path
+          required: true
+          schema: { type: string }
+      responses: { "200": { description: OK } }
+  /delivery/location/{livreurId}:
+    patch:
+      tags: [Deliveries]
+      security: [{ BearerAuth: [] }]
+      summary: Update delivery location
+      parameters:
+        - name: livreurId
+          in: path
+          required: true
+          schema: { type: string }
+      responses: { "200": { description: OK } }
+  /delivery/counts:
+    get:
+      tags: [Deliveries]
+      summary: Get delivery counts
+      responses: { "200": { description: OK } }
+
+  # Geocode
+  /geocode/reverse:
+    get:
+      tags: [Geocoding]
+      summary: Reverse geocode
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema: { type: number }
+        - name: lon
+          in: query
+          required: true
+          schema: { type: number }
+      responses: { "200": { description: OK } }
+  /geocode/search:
+    get:
+      tags: [Geocoding]
+      summary: Forward geocode
+      parameters:
+        [{ name: q, in: query, required: true, schema: { type: string } }]
+      responses: { "200": { description: OK } }
+  /geocode/embed:
+    get:
+      tags: [Geocoding]
+      summary: Embed map
+      parameters:
+        - name: bbox
+          in: query
+          schema: { type: string }
+        - name: marker
+          in: query
+          schema: { type: string }
+        - name: zoom
+          in: query
+          schema: { type: integer, default:15 }
+      responses: { "200": { description: OK } }
+  /geocode/route:
+    get:
+      tags: [Geocoding]
+      summary: Route directions
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string }
+        - name: mode
+          in: query
+          schema: { type: string, default:car }
+      responses: { "200": { description: OK } }
+  /geocode/restaurant-locations:
+    get:
+      tags: [Geocoding]
+      summary: Nearby restaurants
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: lat
+          in: query
+          schema: { type: number }
+        - name: lon
+          in: query
+          schema: { type: number }
+        - name: radius
+          in: query
+          schema: { type: number }
+      responses: { "200": { description: OK } }
+
+  # File Upload
+  /upload:
+    post:
+      tags: [Uploads]
+      security: [{ BearerAuth: [] }]
+      summary: Upload image file
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image: { type: string, format: binary }
+                type: { type: string, enum: [chat, food, restaurant, general] }
+      responses:
+        "201": { description: Uploaded }
+        "400": { description: Invalid file }
+
+  # Restaurants
+  /restaurants:
+    get:
+      tags: [Restaurants]
+      summary: List restaurants
+      parameters:
+        - name: lat
+          in: query
+          schema: { type: number }
+        - name: lon
+          in: query
+          schema: { type: number }
+      responses: { "200": { description: OK } }
+    post:
+      tags: [Restaurants]
+      security: [{ BearerAuth: [] }]
+      summary: Create restaurant
+      description: "**Note:** Requires Admin role."
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/Restaurant"
+                - type: object
+                  properties:
+                    image: { type: string, format: binary }
+      responses: { "201": { description: Created } }
+  /restaurants/{id}:
+    parameters:
+      [{ name: id, in: path, required: true, schema: { type: string } }]
+    get:
+      tags: [Restaurants]
+      summary: Get restaurant by ID
+      responses: { "200": { description: OK } }
+    put:
+      tags: [Restaurants]
+      security: [{ BearerAuth: [] }]
+      summary: Update restaurant
+      description: "**Note:** Requires Admin role."
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/Restaurant"
+                - type: object
+                  properties:
+                    image: { type: string, format: binary }
+      responses: { "200": { description: Updated } }
+    delete:
+      tags: [Restaurants]
+      security: [{ BearerAuth: [] }]
+      summary: Delete restaurant
+      description: "**Note:** Requires Admin role."
+      responses: { "204": { description: Deleted } }
+  /restaurants/{id}/rate:
+    post:
+      tags: [Restaurants]
+      security: [{ BearerAuth: [] }]
+      summary: Rate a restaurant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses: { "200": { description: OK } }
+
+  # Foods
+  /foods:
+    get:
+      tags: [Foods]
+      summary: List foods
+      responses: { "200": { description: OK } }
+    post:
+      tags: [Foods]
+      security: [{ BearerAuth: [] }]
+      summary: Add food
+      description: "**Note:** Requires Admin role."
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/Food"
+                - type: object
+                  properties:
+                    image: { type: string, format: binary }
+      responses: { "201": { description: Created } }
+  /foods/{id}:
+    parameters:
+      [{ name: id, in: path, required: true, schema: { type: string } }]
+    get:
+      tags: [Foods]
+      summary: Get food by ID
+      responses: { "200": { description: OK } }
+    put:
+      tags: [Foods]
+      security: [{ BearerAuth: [] }]
+      summary: Update food
+      description: "**Note:** Requires Admin role."
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/Food"
+                - type: object
+                  properties:
+                    image: { type: string, format: binary }
+      responses: { "200": { description: Updated } }
+    delete:
+      tags: [Foods]
+      security: [{ BearerAuth: [] }]
+      summary: Delete food
+      description: "**Note:** Requires Admin role."
+      responses: { "204": { description: Deleted } }
+  /foods/{id}/rate:
+    post:
+      tags: [Foods]
+      security: [{ BearerAuth: [] }]
+      summary: Rate a food item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses: { "200": { description: OK } }
+  /foods/upload-image/{id}:
+    post:
+      tags: [Foods]
+      security: [{ BearerAuth: [] }]
+      summary: Upload image for a food item
+      description: "**Note:** Requires Admin role."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image: { type: string, format: binary }
+      responses: { "201": { description: Created } }
+
+  # Orders
+  /orders:
+    get:
+      tags: [Orders]
+      security: [{ BearerAuth: [] }]
+      summary: List orders
+      responses: { "200": { description: OK } }
+    post:
+      tags: [Orders]
+      security: [{ BearerAuth: [] }]
+      summary: Create order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Order" }
+      responses: { "201": { description: Created } }
+  /orders/add:
+    post:
+      tags: [Orders]
+      security: [{ BearerAuth: [] }]
+      summary: Create order (alias)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Order" }
+      responses: { "201": { description: Created } }
+  /orders/{id}:
+    parameters:
+      [{ name: id, in: path, required: true, schema: { type: string } }]
+    get:
+      tags: [Orders]
+      security: [{ BearerAuth: [] }]
+      summary: Get order by ID
+      responses: { "200": { description: OK } }
+  /orders/update/{id}:
+    put:
+      tags: [Orders]
+      security: [{ BearerAuth: [] }]
+      summary: Update order
+      parameters:
+        [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Order" }
+      responses: { "200": { description: Updated } }
+  /orders/{id}/status:
+    patch:
+      tags: [Orders]
+      security: [{ BearerAuth: [] }]
+      summary: Change order status
+      parameters:
+        [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string }
+                livreur: { type: string, format: objectId, nullable: true }
+      responses: { "200": { description: Status updated } }
+  /orders/{id}/assign-livreur:
+    patch:
+      tags: [Orders]
+      security: [{ BearerAuth: [] }]
+      summary: Assign livreur to order
+      parameters:
+        [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: Livreur assigned } }
+  /orders/delete/{id}:
+    delete:
+      tags: [Orders]
+      security: [{ BearerAuth: [] }]
+      summary: Delete order
+      parameters:
+        [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: Deleted } }
+
+  # Payments
+  /payments:
+    get:
+      tags: [Payments]
+      security: [{ BearerAuth: [] }]
+      summary: List payments
+      responses: { "200": { description: OK } }
+    post:
+      tags: [Payments]
+      security: [{ BearerAuth: [] }]
+      summary: Add payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Payment" }
+      responses: { "201": { description: Created } }
+  /payments/{id}:
+    parameters:
+      [{ name: id, in: path, required: true, schema: { type: string } }]
+    get:
+      tags: [Payments]
+      security: [{ BearerAuth: [] }]
+      summary: Get payment
+      responses: { "200": { description: OK } }
+    put:
+      tags: [Payments]
+      security: [{ BearerAuth: [] }]
+      summary: Update payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Payment" }
+      responses: { "200": { description: Updated } }
+    delete:
+      tags: [Payments]
+      security: [{ BearerAuth: [] }]
+      summary: Delete payment
+      responses: { "204": { description: Deleted } }
+
+  # Feedback
+  /feedback:
+    post:
+      tags: [Feedback]
+      security: [{ BearerAuth: [] }]
+      summary: Create feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Feedback" }
+      responses: { "201": { description: Created } }
+  /feedback/{type}/{id}:
+    get:
+      tags: [Feedback]
+      security: [{ BearerAuth: [] }]
+      summary: Get feedback by type (order|delivery|restaurant)
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses: { "200": { description: OK } }
+  /feedback/my-feedback:
+    get:
+      tags: [Feedback]
+      security: [{ BearerAuth: [] }]
+      summary: User's feedback
+      responses: { "200": { description: OK } }
+
+  # Notifications
+  /notifications:
+    get:
+      tags: [Notifications]
+      security: [{ BearerAuth: [] }]
+      summary: List notifications
+      responses: { "200": { description: OK } }
+    post:
+      tags: [Notifications]
+      security: [{ BearerAuth: [] }]
+      summary: Create notification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Notification" }
+      responses: { "201": { description: Created } }
+  /notifications/unread:
+    get:
+      tags: [Notifications]
+      security: [{ BearerAuth: [] }]
+      summary: List unread
+      responses: { "200": { description: OK } }
+  /notifications/{id}/read:
+    put:
+      tags: [Notifications]
+      security: [{ BearerAuth: [] }]
+      summary: Mark one read
+      parameters:
+        [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: Updated } }
+  /notifications/read-all:
+    put:
+      tags: [Notifications]
+      security: [{ BearerAuth: [] }]
+      summary: Mark all read
+      responses: { "200": { description: Updated } }
+  /notifications/{id}:
+    delete:
+      tags: [Notifications]
+      security: [{ BearerAuth: [] }]
+      summary: Delete notification
+      parameters:
+        [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: Deleted } }
+
+  # Settings
+  /settings:
+    get:
+      tags: [Settings]
+      security: [{ BearerAuth: [] }]
+      summary: Get settings
+      responses: { "200": { description: OK } }
+    put:
+      tags: [Settings]
+      security: [{ BearerAuth: [] }]
+      summary: Update settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Settings" }
+      responses: { "200": { description: Updated } }
+
+  # Health Check
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses: { "200": { description: OK } }
+  /health-check:
+    get:
+      tags: [Health]
+      summary: Health check (alias)
+      responses: { "200": { description: OK } }
+
+  # Route Optimization
+  /route-optimization/optimized-route:
+    get:
+      tags: [Route]
+      security: [{ BearerAuth: [] }]
+      summary: Optimized delivery route
+      responses: { "200": { description: OK } }
+  /route-optimization/update-location:
+    post:
+      tags: [Route]
+      security: [{ BearerAuth: [] }]
+      summary: Live GPS ping
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lat: { type: number }
+                lon: { type: number }
+      responses: { "200": { description: OK } }
+  # Analytics
+  /analytics:
+    get:
+      tags: [Analytics]
+      security: [{ BearerAuth: [] }]
+      summary: Get analytics
+      responses: { "200": { description: OK } }
+
+x-websocket-events:
+  description: Socket.IO events (non-standard WebSocket)
+  events:
+    user_connected:
+      payload: { userId: string }
+    user_disconnected:
+      payload: { userId: string }
+    user_status_change:
+      payload: { userId: string, status: [online, offline] }
+    online_users:
+      payload: [string]
