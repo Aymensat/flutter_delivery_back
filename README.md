@@ -56,31 +56,48 @@ The application uses `multer` to handle file uploads. This allows users to uploa
 
 ## Getting Started
 
-To get started with the application, you will need to have Node.js and MongoDB installed on your machine.
+To get this project running locally, you will need to have Node.js and MongoDB installed on your machine.
 
-1.  Clone the repository:
+### 1. Clone the Repository
 
-```
+```bash
 git clone https://github.com/your-username/backend-flutter-app.git
+cd backend-flutter-app
 ```
 
-2.  Install the dependencies:
+### 2. Install Dependencies
 
-```
+```bash
 npm install
 ```
 
-3.  Create a `.env` file in the root of the project and add the following environment variables:
+### 3. Set Up Environment Variables
+
+Create a file named `.env` in the root of the project and add the following, replacing the placeholders with your own values:
 
 ```
-MONGO_URI=<your-mongodb-uri>
-JWT_SECRET=<your-jwt-secret>
+MONGO_URI=<your-mongodb-connection-string>
+JWT_SECRET=a_strong_secret_key_for_testing
 ```
 
-4.  Start the server:
+### 4. Restore the Demo Database
 
+This project includes a dump of the demo database with mock data and images.
+
+1.  Go to the [**Releases Page**](https://github.com/your-username/your-repo-name/releases) on GitHub.
+2.  Download the `database_dump.zip` file from the latest release.
+3.  Unzip the file. You should now have a `dump` folder in your project directory.
+4.  Run the `mongorestore` command to load the data into your local MongoDB. This will create a new database with the project's data.
+
+```bash
+# This command assumes the 'dump' folder is in your current directory
+mongorestore
 ```
+
+### 5. Start the Server
+
+```bash
 npm start
 ```
 
-The server will be running on `http://localhost:3000`.
+The server will now be running on `http://localhost:3000`, connected to a database populated with the demo data.
